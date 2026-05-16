@@ -128,7 +128,11 @@ Devvit.addMenuItem({
   label: '⚖️ Send to Council',
   location: 'post',
   forUserType: 'moderator',
-  onPress: (_event, context) => { context.ui.showForm(councilPostForm); },
+  onPress: async (event, context) => {
+    const kind = await context.redis.get(KEYS.postKind(event.targetId));
+    if (kind) { context.ui.showToast('Not available on Bastion posts.'); return; }
+    context.ui.showForm(councilPostForm);
+  },
 });
 
 Devvit.addMenuItem({
@@ -144,6 +148,8 @@ Devvit.addMenuItem({
   forUserType: 'moderator',
   onPress: async (event, context) => {
     try {
+      const kind = await context.redis.get(KEYS.postKind(event.targetId));
+      if (kind) { context.ui.showToast('Not available on Bastion posts.'); return; }
       const post = await context.reddit.getPostById(event.targetId);
       const authorName = post.authorName ?? '';
       const authorId = post.authorId ?? '';
@@ -204,6 +210,8 @@ Devvit.addMenuItem({
   forUserType: 'moderator',
   onPress: async (event, context) => {
     try {
+      const kind = await context.redis.get(KEYS.postKind(event.targetId));
+      if (kind) { context.ui.showToast('Not available on Bastion posts.'); return; }
       const post = await context.reddit.getPostById(event.targetId);
       context.ui.showForm(quickNoteForm, { username: post.authorName ?? '' });
     } catch {
@@ -230,7 +238,11 @@ Devvit.addMenuItem({
   label: '🗑️ Nuke Thread Comments',
   location: 'post',
   forUserType: 'moderator',
-  onPress: (_event, context) => { context.ui.showForm(nukePostForm); },
+  onPress: async (event, context) => {
+    const kind = await context.redis.get(KEYS.postKind(event.targetId));
+    if (kind) { context.ui.showToast('Not available on Bastion posts.'); return; }
+    context.ui.showForm(nukePostForm);
+  },
 });
 
 Devvit.addMenuItem({
@@ -244,7 +256,11 @@ Devvit.addMenuItem({
   label: '🌐 Tag this Domain',
   location: 'post',
   forUserType: 'moderator',
-  onPress: (_event, context) => { context.ui.showForm(tagDomainForm); },
+  onPress: async (event, context) => {
+    const kind = await context.redis.get(KEYS.postKind(event.targetId));
+    if (kind) { context.ui.showToast('Not available on Bastion posts.'); return; }
+    context.ui.showForm(tagDomainForm);
+  },
 });
 
 Devvit.addTrigger({ event: 'PostSubmit',    onEvent: onPostSubmit });

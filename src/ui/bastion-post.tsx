@@ -41,6 +41,7 @@ export function BastionPost(context: Context): JSX.Element {
   const [tab, setTab] = useState<DashboardTab>('waves');
   const [dashRefresh, setDashRefresh] = useState(0);
   const [caseRefresh, setCaseRefresh] = useState(0);
+  const [confirmNukeWaveId, setConfirmNukeWaveId] = useState('');
 
   // Determine post kind and load council data if needed.
   // Also gates access — non-mods and logged-out users see an access-denied screen.
@@ -238,9 +239,9 @@ export function BastionPost(context: Context): JSX.Element {
 
                 {!isResolved && !alreadyVoted ? (
                   <hstack gap="small">
-                    <button size="small" appearance="destructive" grow onPress={() => handleVote('remove')}>🔴 Remove</button>
-                    <button size="small" appearance="secondary" grow onPress={() => handleVote('approve')}>🟢 Approve</button>
-                    <button size="small" appearance="destructive" grow onPress={() => handleVote('escalate')}>⚡ Escalate</button>
+                    <button size="medium" appearance="destructive" grow onPress={() => handleVote('remove')}>🔴 Remove</button>
+                    <button size="medium" appearance="secondary" grow onPress={() => handleVote('approve')}>🟢 Approve</button>
+                    <button size="medium" appearance="destructive" grow onPress={() => handleVote('escalate')}>⚡ Escalate</button>
                   </hstack>
                 ) : null}
 
@@ -278,22 +279,23 @@ export function BastionPost(context: Context): JSX.Element {
   return (
     <blocks height="tall">
       <vstack width="100%" height="100%" backgroundColor={COLORS.bg}>
-        <hstack padding="medium" backgroundColor={COLORS.card} border="thin" borderColor={COLORS.border} alignment="middle">
+        <hstack padding="medium" backgroundColor={COLORS.card} border="thin" borderColor={COLORS.border} alignment="middle" gap="small">
           <text size="large" weight="bold" color={COLORS.orange}>🛡️ {APP_NAME.toUpperCase()}</text>
           <spacer grow />
+          <LiveIndicator status={channel.status} />
           <button size="small" appearance="secondary" onPress={dashRefreshFn} icon="refresh">Refresh</button>
         </hstack>
 
         <hstack backgroundColor={COLORS.card} border="thin" borderColor={COLORS.border} padding="xsmall" gap="small">
           {(['waves', 'cases', 'stats', 'domains'] as DashboardTab[]).map((t) => (
-            <button key={t} size="small" appearance={tab === t ? 'primary' : 'secondary'} onPress={() => setTab(t)}>
+            <button key={t} size="medium" appearance={tab === t ? 'primary' : 'secondary'} onPress={() => setTab(t)}>
               {TAB_LABELS[t]}
             </button>
           ))}
         </hstack>
 
         <vstack grow padding="medium" gap="small">
-          {tab === 'waves' && renderWaves(waves, wLoading, context, realtimeChannelName, dashRefreshFn)}
+          {tab === 'waves' && renderWaves(waves, wLoading, context, realtimeChannelName, dashRefreshFn, { waveId: confirmNukeWaveId, onRequest: (id: string) => setConfirmNukeWaveId(id), onCancel: () => setConfirmNukeWaveId('') })}
           {tab === 'cases' && renderCases(cases, cLoading, context)}
           {tab === 'stats' && renderStats(statsRaw, sLoading)}
           {tab === 'domains' && renderDomains(domains, dLoading, context, realtimeChannelName, dashRefreshFn, addDomainForm)}
@@ -303,7 +305,16 @@ export function BastionPost(context: Context): JSX.Element {
   );
 }
 
-function renderWaves(waves: Wave[] | null, loading: boolean, context: Context, channelName: string, refresh: () => void): JSX.Element {
+type WaveConfirm = { waveId: string; onRequest: (id: string) => void; onCancel: () => void };
+
+function renderWaves(
+  waves: Wave[] | null,
+  loading: boolean,
+  context: Context,
+  channelName: string,
+  refresh: () => void,
+  confirm: WaveConfirm
+): JSX.Element {
   if (loading) return <EmptyState icon="🔍" text="Scanning for waves..." />;
   if (!waves || waves.length === 0) {
     return <EmptyState icon="✅" text="No suspicious activity detected." subtitle="Bastion monitors new posts and comments automatically." />;
@@ -315,7 +326,11 @@ function renderWaves(waves: Wave[] | null, loading: boolean, context: Context, c
         <WaveCard
           key={wave.id}
           wave={wave}
+          isConfirming={wave.id === confirm.waveId}
+          onRequestConfirm={() => confirm.onRequest(wave.id)}
+          onCancelConfirm={confirm.onCancel}
           onNuke={async () => {
+            confirm.onCancel();
             context.ui.showToast('Nuking wave...');
             for (const item of wave.items) {
               if (item.type === 'post') await nukeThread(item.id, { remove: true, lock: false, isSpam: true }, context);
@@ -446,6 +461,11 @@ function renderDomains(domains: DomainsMap | null, loading: boolean, context: Co
       ))}
     </vstack>
   );
+}
+
+function LiveIndicator({ status }: Readonly<{ status: number }>): JSX.Element {
+  if (status === 2) return <text size="xsmall" color={COLORS.success} weight="bold">● LIVE</text>;
+  return <text size="xsmall" color={COLORS.textMuted}>○ Connecting</text>;
 }
 
 function EmptyState({ icon, text, subtitle }: Readonly<{ icon: string; text: string; subtitle?: string }>): JSX.Element {

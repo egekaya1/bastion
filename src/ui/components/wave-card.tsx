@@ -18,9 +18,12 @@ interface WaveCardProps {
   wave: Wave;
   onNuke: () => void | Promise<void>;
   onDismiss: () => void | Promise<void>;
+  isConfirming: boolean;
+  onRequestConfirm: () => void;
+  onCancelConfirm: () => void;
 }
 
-export function WaveCard({ wave, onNuke, onDismiss }: Readonly<WaveCardProps>): JSX.Element {
+export function WaveCard({ wave, onNuke, onDismiss, isConfirming, onRequestConfirm, onCancelConfirm }: Readonly<WaveCardProps>): JSX.Element {
   const uniqueAuthors = [...new Set(wave.items.map((i) => `u/${i.authorName}`))];
   const displayAuthors =
     uniqueAuthors.length <= 3
@@ -35,7 +38,7 @@ export function WaveCard({ wave, onNuke, onDismiss }: Readonly<WaveCardProps>): 
       cornerRadius="medium"
       padding="medium"
       border="thin"
-      borderColor={COLORS.caution}
+      borderColor={isConfirming ? COLORS.danger : COLORS.caution}
       gap="small"
     >
       <hstack alignment="middle" gap="small">
@@ -64,23 +67,22 @@ export function WaveCard({ wave, onNuke, onDismiss }: Readonly<WaveCardProps>): 
         </text>
       ) : null}
 
-      <hstack gap="small" alignment="middle">
-        <button
-          size="small"
-          appearance="destructive"
-          onPress={onNuke}
-          icon="delete"
-        >
-          Nuke Wave
-        </button>
-        <button
-          size="small"
-          appearance="secondary"
-          onPress={onDismiss}
-        >
-          Dismiss ✓
-        </button>
-      </hstack>
+      {isConfirming ? (
+        <vstack gap="small">
+          <text size="xsmall" color={COLORS.warning} weight="bold" alignment="center">
+            Remove all {wave.items.length} item{wave.items.length === 1 ? '' : 's'}? This cannot be undone.
+          </text>
+          <hstack gap="small">
+            <button size="small" appearance="destructive" grow onPress={onNuke}>✓ Confirm Nuke</button>
+            <button size="small" appearance="secondary" onPress={onCancelConfirm}>Cancel</button>
+          </hstack>
+        </vstack>
+      ) : (
+        <hstack gap="small" alignment="middle">
+          <button size="small" appearance="destructive" onPress={onRequestConfirm} icon="delete">Nuke Wave</button>
+          <button size="small" appearance="secondary" onPress={onDismiss}>Dismiss ✓</button>
+        </hstack>
+      )}
     </vstack>
   );
 }

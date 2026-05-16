@@ -22,6 +22,33 @@ async function applyToComment(comment: Comment, options: NukeOptions): Promise<b
   }
 }
 
+type CommentEntry = { id: string; parentId: string; comment: Comment };
+
+async function fetchCommentEntries(postId: string, excludeId: string, context: TriggerContext): Promise<CommentEntry[]> {
+  const entries: CommentEntry[] = [];
+  const iter = context.reddit.getComments({ postId, limit: 500, pageSize: 100 });
+  for await (const c of iter) {
+    if (c.id !== excludeId) entries.push({ id: c.id, parentId: c.parentId, comment: c });
+  }
+  return entries;
+}
+
+function buildSubtree(rootId: string, entries: Pick<CommentEntry, 'id' | 'parentId'>[]): Set<string> {
+  const subtree = new Set<string>([rootId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const { id, parentId } of entries) {
+      if (!subtree.has(id) && subtree.has(parentId.replace(/^t1_/, ''))) {
+        subtree.add(id);
+        grew = true;
+      }
+    }
+  }
+  subtree.delete(rootId);
+  return subtree;
+}
+
 export async function nukeThread(
   postId: string,
   options: NukeOptions,
@@ -64,17 +91,16 @@ export async function nukeCommentThread(
   let errors = 0;
 
   try {
-    const comment = await context.reddit.getCommentById(commentId);
-    const postId = comment.postId;
-
-    if (await applyToComment(comment, options)) count++;
+    const rootComment = await context.reddit.getCommentById(commentId);
+    if (await applyToComment(rootComment, options)) count++;
     else errors++;
 
-    const allComments = context.reddit.getComments({ postId, limit: 500, pageSize: 100 });
+    const allComments = await fetchCommentEntries(rootComment.postId, commentId, context);
+    const subtree = buildSubtree(commentId, allComments);
 
-    for await (const c of allComments) {
-      if (c.parentId !== `t1_${commentId}` || c.body === '[removed]') continue;
-      if (await applyToComment(c, options)) count++;
+    for (const { id, comment } of allComments) {
+      if (!subtree.has(id)) continue;
+      if (await applyToComment(comment, options)) count++;
       else errors++;
     }
   } catch (e) {
