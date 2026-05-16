@@ -106,4 +106,4 @@ Other mod tools are built for the browser. They require each moderator to instal
 
 Bastion is built differently. It is a native Reddit app: one install by the mod team lead, and every moderator on every device gets the full feature set immediately. The shared state is real: waves, cases, dossiers, and domain lists are all team-wide. When one mod takes an action, every other mod sees it. When Bastion auto-removes content on a council quorum, the action is logged, the dossier is updated, and the case is closed for the whole team at once.
 
-This is what mod tooling looks like when it is built for 2025.
+This is what mod tooling looks like when it is built for 2026.
