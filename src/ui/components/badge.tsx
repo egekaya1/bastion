@@ -9,18 +9,22 @@ interface WarningBadgeProps {
 export function WarningBadge({ level }: WarningBadgeProps): JSX.Element {
   if (level === 0) {
     return (
-      <hstack backgroundColor={COLORS.successDim} cornerRadius="full" padding="xsmall">
+      <hstack backgroundColor={COLORS.successDim} cornerRadius="full" padding="xsmall" gap="none">
+        <spacer size="xsmall" />
         <text size="xsmall" weight="bold" color={COLORS.white}>
           {WARNING_ICONS[0]} {WARNING_LABELS[0]}
         </text>
+        <spacer size="xsmall" />
       </hstack>
     );
   }
   return (
-    <hstack backgroundColor={WARNING_COLORS[level]} cornerRadius="full" padding="xsmall">
+    <hstack backgroundColor={WARNING_COLORS[level]} cornerRadius="full" padding="xsmall" gap="none">
+      <spacer size="xsmall" />
       <text size="xsmall" weight="bold" color={COLORS.bg}>
         {WARNING_ICONS[level]} LEVEL {level}: {WARNING_LABELS[level].toUpperCase()}
       </text>
+      <spacer size="xsmall" />
     </hstack>
   );
 }
@@ -30,12 +34,14 @@ interface SignalBadgeProps {
   signal: Signal;
 }
 
-export function SignalBadge({ signal }: SignalBadgeProps): JSX.Element {
+export function SignalBadge({ signal }: Readonly<SignalBadgeProps>): JSX.Element {
   return (
-    <hstack backgroundColor={COLORS.card} cornerRadius="full" padding="xsmall" border="thin" borderColor={COLORS.caution}>
+    <hstack backgroundColor={COLORS.card} cornerRadius="full" padding="xsmall" gap="none" border="thin" borderColor={COLORS.caution}>
+      <spacer size="xsmall" />
       <text size="xsmall" color={COLORS.caution}>
         ⚡ {SIGNAL_LABELS[signal] ?? signal}
       </text>
+      <spacer size="xsmall" />
     </hstack>
   );
 }
@@ -44,7 +50,7 @@ interface StatusBadgeProps {
   status: string;
 }
 
-export function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
+export function StatusBadge({ status }: Readonly<StatusBadgeProps>): JSX.Element {
   const colorMap: Record<string, string> = {
     pending: COLORS.warning,
     open: COLORS.warning,
@@ -55,10 +61,12 @@ export function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
   };
   const color = colorMap[status] ?? COLORS.textMuted;
   return (
-    <hstack cornerRadius="full" padding="xsmall" border="thin" borderColor={color}>
+    <hstack cornerRadius="full" padding="xsmall" gap="none" border="thin" borderColor={color}>
+      <spacer size="xsmall" />
       <text size="xsmall" color={color} weight="bold">
         {status.toUpperCase()}
       </text>
+      <spacer size="xsmall" />
     </hstack>
   );
 }

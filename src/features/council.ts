@@ -108,12 +108,20 @@ async function executeDecision(
   if (!decision) return;
 
   const subreddit = await context.reddit.getCurrentSubreddit();
-  let outcome: Case['decision'] = 'approved';
+
+  // Determine the intended outcome before any API calls so an error can't silently
+  // flip a remove/ban decision to 'approved'.
+  const outcomeByDecision: Record<string, Case['decision']> = {
+    approve: 'approved',
+    escalate: 'banned',
+    remove: 'removed',
+  };
+  const intendedOutcome: Case['decision'] = outcomeByDecision[decision] ?? 'removed';
+  let outcome: Case['decision'] = intendedOutcome;
 
   try {
     if (decision === 'remove') {
       await context.reddit.remove(c.targetId, false);
-      outcome = 'removed';
       await recordModAction(subredditId, 'Bastion', 'removes', context);
     } else if (decision === 'approve') {
       await context.reddit.approve(c.targetId);
@@ -128,14 +136,13 @@ async function executeDecision(
           reason: c.reason,
         });
       } catch {
-        // ban may fail if already banned
+        // ban may fail if user is already banned — outcome stays 'banned'
       }
-      outcome = 'banned';
       await recordModAction(subredditId, 'Bastion', 'bans', context);
     }
   } catch (e) {
     console.error('executeDecision error:', e);
-    outcome = 'approved'; // fallback
+    // outcome stays as intendedOutcome — don't flip a remove/ban to 'approved' on API error
   }
 
   // Write native Reddit mod note

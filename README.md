@@ -1,6 +1,6 @@
 # Bastion: Mod Intelligence Suite for Reddit
 
-> One install. Works on mobile. The whole team, coordinated.
+> One install. Works on mobile. The whole team, coordinated in real time.
 
 ---
 
@@ -18,7 +18,7 @@ No native Devvit app has addressed any of this. Until Bastion.
 
 Bastion is a single Devvit app that installs once and gives every moderator on the team:
 
-- **Coordinated activity detection:** Automatic, real-time identification of spam waves before they bury the queue
+- **Real-time coordinated detection:** Automatic identification of spam waves before they bury the queue, with live dashboard updates pushed to every open mod session the moment a wave is actioned
 - **Collaborative enforcement:** Council cases where mods vote together and Reddit actions execute automatically on quorum
 - **User intelligence:** Persistent dossiers tracking every user's history, warning level, and mod notes
 - **Domain blacklisting:** Tag spam domains once; every future post mentioning them gets flagged automatically
@@ -35,6 +35,9 @@ Everything runs natively in Reddit. No browser extension. No external service. W
 Every new post and comment is scored automatically against five signals: new account (configurable age threshold), low karma (configurable total), high posting frequency, similar content (title fingerprint), and known spam domain. When an item matches two or more signals, it gets grouped into an active wave. The dashboard surfaces waves as cards, each showing the signal cluster, affected accounts, and one-tap actions to nuke the whole wave or dismiss it.
 
 Domain detection scans the post URL, title, and full body text, so it catches spam in text posts and comments, not just link posts.
+
+### Real-time Dashboard
+Every open dashboard session receives live updates over Devvit Realtime. When any mod nukes a wave, dismisses a wave, or tags a domain, every other mod's dashboard reflects the change immediately, no manual refresh needed. Council case posts update live as votes come in.
 
 ### Council Cases
 Right-click any post or comment and select **Send to Council**. Fill in the reason, optional context, and your initial recommendation. A dedicated council case post is created where every mod can read the full user dossier embedded inline and vote Remove, Approve, or Escalate. The referring mod's recommendation counts as their first vote. Once the configured quorum is reached, the action fires automatically: content removed, content approved, or user banned and content removed. No mod has to manually take the action, and no two mods can fire the same action twice.
@@ -78,7 +81,7 @@ src/
 
 **Detection is pure heuristics.** No ML, no external call. Signal scoring runs synchronously in the PostSubmit and CommentSubmit triggers. Frequency counters use Redis keys with a 1-hour TTL. Content fingerprinting hashes normalized titles and compares against a 24-hour rolling set.
 
-**Realtime-ready.** The dashboard uses Devvit's `useAsync` with a refresh counter as the dependency so mods can pull fresh state on demand. The foundation is in place for Realtime push updates across open dashboard sessions.
+**Realtime push updates.** The dashboard and council case posts subscribe to a per-subreddit Devvit Realtime channel. Any state-mutating action (wave nuke, wave dismiss, vote cast, domain tag) broadcasts a typed event to all open sessions. Recipients increment a refresh counter that drives `useAsync` re-fetches, giving every mod a live view of the queue without polling.
 
 ---
 
@@ -104,6 +107,6 @@ Open **App Settings** from your subreddit's mod tools to tune the detection thre
 
 Other mod tools are built for the browser. They require each moderator to install and configure them individually, they break on mobile, and they have no shared state across the team. Every mod is working from their own local view of the queue.
 
-Bastion is built differently. It is a native Reddit app: one install by the mod team lead, and every moderator on every device gets the full feature set immediately. The shared state is real: waves, cases, dossiers, and domain lists are all team-wide. When one mod takes an action, every other mod sees it. When Bastion auto-removes content on a council quorum, the action is logged, the dossier is updated, and the case is closed for the whole team at once.
+Bastion is built differently. It is a native Reddit app: one install by the mod team lead, and every moderator on every device gets the full feature set immediately. The shared state is real: waves, cases, dossiers, and domain lists are all team-wide. When one mod takes an action, every other mod sees it in real time. When Bastion auto-removes content on a council quorum, the action is logged, the dossier is updated, and the case is closed for the whole team at once.
 
-This is what mod tooling looks like when it is built for 2026.
+This is what mod tooling looks like when it is built for 2025.

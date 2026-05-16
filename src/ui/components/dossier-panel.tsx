@@ -1,5 +1,5 @@
 import { Devvit } from '@devvit/public-api';
-import { COLORS, WARNING_COLORS, WARNING_LABELS, WARNING_ICONS } from '../../constants.js';
+import { COLORS } from '../../constants.js';
 import { WarningBadge } from './badge.js';
 import type { Dossier } from '../../types.js';
 import type { LiveUserData } from '../../features/dossier.js';
@@ -7,6 +7,7 @@ import type { LiveUserData } from '../../features/dossier.js';
 function timeAgo(ms: number): string {
   const diff = Date.now() - ms;
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -19,7 +20,7 @@ interface DossierPanelProps {
   compact?: boolean;
 }
 
-export function DossierPanel({ dossier, live, compact = false }: DossierPanelProps): JSX.Element {
+export function DossierPanel({ dossier, live, compact = false }: Readonly<DossierPanelProps>): JSX.Element {
   const recentCases = dossier.cases.slice(0, compact ? 2 : 5);
   const recentNotes = dossier.notes.slice(0, compact ? 1 : 3);
 
@@ -33,7 +34,7 @@ export function DossierPanel({ dossier, live, compact = false }: DossierPanelPro
       gap="small"
       minWidth="180px"
     >
-            <vstack gap="small">
+      <vstack gap="small">
         <text size="medium" weight="bold" color={COLORS.textPrimary}>
           👤 u/{dossier.username}
         </text>
@@ -58,13 +59,13 @@ export function DossierPanel({ dossier, live, compact = false }: DossierPanelPro
         )}
       </vstack>
 
-            {dossier.cases.length > 0 ? (
+      {dossier.cases.length > 0 ? (
         <vstack gap="small">
           <text size="xsmall" color={COLORS.textMuted} weight="bold">
             CASE HISTORY ({dossier.cases.length})
           </text>
-          {recentCases.map((c, i) => (
-            <hstack key={String(i)} gap="small" alignment="middle">
+          {recentCases.map((c) => (
+            <hstack key={c.caseId} gap="small" alignment="middle">
               <text
                 size="xsmall"
                 color={c.outcome === 'removed' || c.outcome === 'banned' ? COLORS.danger : COLORS.success}
@@ -90,13 +91,13 @@ export function DossierPanel({ dossier, live, compact = false }: DossierPanelPro
         <text size="xsmall" color={COLORS.textMuted}>No case history</text>
       )}
 
-            {!compact && recentNotes.length > 0 ? (
+      {!compact && recentNotes.length > 0 ? (
         <vstack gap="small">
           <text size="xsmall" color={COLORS.textMuted} weight="bold">
             MOD NOTES ({dossier.notes.length})
           </text>
-          {recentNotes.map((n, i) => (
-            <vstack key={String(i)} gap="small">
+          {recentNotes.map((n) => (
+            <vstack key={String(n.at)} gap="small">
               <text size="xsmall" color={COLORS.textPrimary} overflow="ellipsis">
                 "{n.text.slice(0, 80)}"
               </text>

@@ -1,4 +1,4 @@
-import { Devvit, useState, useAsync, useForm } from '@devvit/public-api'; // Devvit used as JSX factory (jsxFactory: "Devvit.createElement")
+import { Devvit, useState, useAsync, useForm, useChannel } from '@devvit/public-api'; // Devvit used as JSX factory (jsxFactory: "Devvit.createElement")
 import type { Context } from '@devvit/public-api';
 import { COLORS, APP_NAME, KEYS, TAG_COLOR_LABELS } from '../constants.js';
 import { WaveCard } from './components/wave-card.js';
@@ -20,6 +20,7 @@ import type { DomainsMap } from '../redis/domains.js';
 function timeAgo(ms: number): string {
   const diff = Date.now() - ms;
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -43,11 +44,9 @@ export function BastionPost(context: Context): JSX.Element {
 
   // Determine post kind and load council data if needed.
   // Also gates access — non-mods and logged-out users see an access-denied screen.
-  // Falls back to getCaseByPostId for posts created before this key existed.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: councilRaw, loading: kindLoading } = useAsync<any>(
     async () => {
-      // Mod gate: fail closed for anonymous and non-mod users.
       if (!context.username) return { accessDenied: true };
       try {
         const subreddit = await context.reddit.getCurrentSubreddit();
@@ -125,8 +124,22 @@ export function BastionPost(context: Context): JSX.Element {
       await saveDomain(context.subredditId, domain, { label, color, addedBy: context.username ?? 'unknown', addedAt: Date.now() }, context);
       context.ui.showToast(`✅ Tagged ${domain} as ${color}.`);
       setDashRefresh((k) => k + 1);
+      await context.realtime.send(`bastion-${context.subredditId}`, { type: 'dash' });
     }
   );
+
+  // Realtime channel — broadcasts state changes to all open Bastion posts in this subreddit.
+  // 'dash' events refresh the dashboard; 'case' events (with matching postId) refresh a council case.
+  const realtimeChannelName = `bastion-${context.subredditId}`;
+  const channel = useChannel({
+    name: realtimeChannelName,
+    onMessage: (msg) => {
+      const data = msg as { type: string; postId?: string };
+      if (data.type === 'dash') setDashRefresh((k) => k + 1);
+      if (data.type === 'case' && data.postId === context.postId) setCaseRefresh((k) => k + 1);
+    },
+  });
+  channel.subscribe();
 
   const dashRefreshFn = (): void => setDashRefresh((k) => k + 1);
 
@@ -163,6 +176,27 @@ export function BastionPost(context: Context): JSX.Element {
     };
     const isResolved = councilCase.status !== 'open';
     const alreadyVoted = councilCase.votes.some((v) => v.modId === context.userId);
+
+    const handleVote = async (vote: 'remove' | 'approve' | 'escalate'): Promise<void> => {
+      const settings = { ...DEFAULT_SETTINGS, ...await context.settings.getAll() };
+      const result = await castVote(
+        context.subredditId,
+        councilCase.id,
+        { modId: context.userId ?? '', modName: context.username ?? '', vote, at: Date.now() },
+        settings,
+        context
+      );
+      if (result.alreadyResolved) { context.ui.showToast('Case already resolved.'); return; }
+      const quorumMessages: Record<string, string> = {
+        approve: '✅ Quorum reached: content approved.',
+        escalate: '✅ Quorum reached: user banned.',
+        remove: '✅ Quorum reached: content removed.',
+      };
+      const outcomeMsg = result.quorumReached ? (quorumMessages[vote] ?? '✅ Quorum reached.') : 'Vote recorded.';
+      setCaseRefresh((k) => k + 1);
+      context.ui.showToast(outcomeMsg);
+      await context.realtime.send(realtimeChannelName, { type: 'case', postId: context.postId ?? '' });
+    };
 
     return (
       <blocks height="tall">
@@ -204,27 +238,9 @@ export function BastionPost(context: Context): JSX.Element {
 
                 {!isResolved && !alreadyVoted ? (
                   <hstack gap="small">
-                    <button size="small" appearance="destructive" grow onPress={async () => {
-                      const settings = { ...DEFAULT_SETTINGS, ...await context.settings.getAll() };
-                      const result = await castVote(context.subredditId, councilCase.id, { modId: context.userId ?? '', modName: context.username ?? '', vote: 'remove', at: Date.now() }, settings, context);
-                      if (result.alreadyResolved) { context.ui.showToast('Case already resolved.'); return; }
-                      setCaseRefresh((k) => k + 1);
-                      context.ui.showToast(result.quorumReached ? '✅ Quorum reached: content removed.' : 'Vote recorded.');
-                    }}>🔴 Remove</button>
-                    <button size="small" appearance="secondary" grow onPress={async () => {
-                      const settings = { ...DEFAULT_SETTINGS, ...await context.settings.getAll() };
-                      const result = await castVote(context.subredditId, councilCase.id, { modId: context.userId ?? '', modName: context.username ?? '', vote: 'approve', at: Date.now() }, settings, context);
-                      if (result.alreadyResolved) { context.ui.showToast('Case already resolved.'); return; }
-                      setCaseRefresh((k) => k + 1);
-                      context.ui.showToast(result.quorumReached ? '✅ Quorum reached: content approved.' : 'Vote recorded.');
-                    }}>🟢 Approve</button>
-                    <button size="small" appearance="destructive" grow onPress={async () => {
-                      const settings = { ...DEFAULT_SETTINGS, ...await context.settings.getAll() };
-                      const result = await castVote(context.subredditId, councilCase.id, { modId: context.userId ?? '', modName: context.username ?? '', vote: 'escalate', at: Date.now() }, settings, context);
-                      if (result.alreadyResolved) { context.ui.showToast('Case already resolved.'); return; }
-                      setCaseRefresh((k) => k + 1);
-                      context.ui.showToast(result.quorumReached ? '✅ Quorum reached: user banned.' : 'Vote recorded.');
-                    }}>⚡ Escalate</button>
+                    <button size="small" appearance="destructive" grow onPress={() => handleVote('remove')}>🔴 Remove</button>
+                    <button size="small" appearance="secondary" grow onPress={() => handleVote('approve')}>🟢 Approve</button>
+                    <button size="small" appearance="destructive" grow onPress={() => handleVote('escalate')}>⚡ Escalate</button>
                   </hstack>
                 ) : null}
 
@@ -277,17 +293,17 @@ export function BastionPost(context: Context): JSX.Element {
         </hstack>
 
         <vstack grow padding="medium" gap="small">
-          {tab === 'waves' && renderWaves(waves, wLoading, context, dashRefreshFn)}
+          {tab === 'waves' && renderWaves(waves, wLoading, context, realtimeChannelName, dashRefreshFn)}
           {tab === 'cases' && renderCases(cases, cLoading, context)}
           {tab === 'stats' && renderStats(statsRaw, sLoading)}
-          {tab === 'domains' && renderDomains(domains, dLoading, context, dashRefreshFn, addDomainForm)}
+          {tab === 'domains' && renderDomains(domains, dLoading, context, realtimeChannelName, dashRefreshFn, addDomainForm)}
         </vstack>
       </vstack>
     </blocks>
   );
 }
 
-function renderWaves(waves: Wave[] | null, loading: boolean, context: Context, refresh: () => void): JSX.Element {
+function renderWaves(waves: Wave[] | null, loading: boolean, context: Context, channelName: string, refresh: () => void): JSX.Element {
   if (loading) return <EmptyState icon="🔍" text="Scanning for waves..." />;
   if (!waves || waves.length === 0) {
     return <EmptyState icon="✅" text="No suspicious activity detected." subtitle="Bastion monitors new posts and comments automatically." />;
@@ -309,10 +325,12 @@ function renderWaves(waves: Wave[] | null, loading: boolean, context: Context, r
             const n = wave.items.length;
             context.ui.showToast(`✅ Nuked ${n} item${n === 1 ? '' : 's'}.`);
             refresh();
+            await context.realtime.send(channelName, { type: 'dash' });
           }}
           onDismiss={async () => {
             await updateWaveStatus(context.subredditId, wave.id, 'dismissed', context.username ?? '', context);
             refresh();
+            await context.realtime.send(channelName, { type: 'dash' });
           }}
         />
       ))}
@@ -357,6 +375,15 @@ function renderStats(statsRaw: unknown, loading: boolean): JSX.Element {
     (b[1].removes + b[1].approves + b[1].bans + b[1].nukes) -
     (a[1].removes + a[1].approves + a[1].bans + a[1].nukes)
   );
+  const totals = mods.reduce(
+    (acc, [, e]) => ({
+      removes: acc.removes + e.removes,
+      approves: acc.approves + e.approves,
+      bans: acc.bans + e.bans,
+      nukes: acc.nukes + e.nukes,
+    }),
+    { removes: 0, approves: 0, bans: 0, nukes: 0 }
+  );
   return (
     <vstack gap="small">
       <text size="small" color={COLORS.textMuted} weight="bold">LAST 7 DAYS</text>
@@ -369,16 +396,20 @@ function renderStats(statsRaw: unknown, loading: boolean): JSX.Element {
       </vstack>
       <hstack gap="medium" padding="small">
         <vstack alignment="center" gap="small">
-          <text size="large" weight="bold" color={COLORS.danger}>{mods.reduce((s, [, e]) => s + e.removes, 0)}</text>
+          <text size="large" weight="bold" color={COLORS.danger}>{totals.removes}</text>
           <text size="xsmall" color={COLORS.textMuted}>Removed</text>
         </vstack>
         <vstack alignment="center" gap="small">
-          <text size="large" weight="bold" color={COLORS.caution}>{mods.reduce((s, [, e]) => s + e.bans, 0)}</text>
+          <text size="large" weight="bold" color={COLORS.caution}>{totals.bans}</text>
           <text size="xsmall" color={COLORS.textMuted}>Banned</text>
         </vstack>
         <vstack alignment="center" gap="small">
-          <text size="large" weight="bold" color={COLORS.success}>{mods.reduce((s, [, e]) => s + e.approves, 0)}</text>
+          <text size="large" weight="bold" color={COLORS.success}>{totals.approves}</text>
           <text size="xsmall" color={COLORS.textMuted}>Approved</text>
+        </vstack>
+        <vstack alignment="center" gap="small">
+          <text size="large" weight="bold" color={COLORS.blue}>{totals.nukes}</text>
+          <text size="xsmall" color={COLORS.textMuted}>Nuked</text>
         </vstack>
       </hstack>
     </vstack>
@@ -386,7 +417,7 @@ function renderStats(statsRaw: unknown, loading: boolean): JSX.Element {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function renderDomains(domains: DomainsMap | null, loading: boolean, context: Context, refresh: () => void, addDomainForm: any): JSX.Element {
+function renderDomains(domains: DomainsMap | null, loading: boolean, context: Context, channelName: string, refresh: () => void, addDomainForm: any): JSX.Element {
   if (loading) return <EmptyState icon="🌐" text="Loading domains..." />;
   const entries: [string, DomainTag][] = domains ? Object.entries(domains) : [];
   const dot: Record<string, string> = { red: '🔴', orange: '🟠', green: '🟢' };
@@ -409,6 +440,7 @@ function renderDomains(domains: DomainsMap | null, loading: boolean, context: Co
           <button size="small" appearance="secondary" icon="delete" onPress={async () => {
             await removeDomain(context.subredditId, domain, context);
             refresh();
+            await context.realtime.send(channelName, { type: 'dash' });
           }} />
         </hstack>
       ))}

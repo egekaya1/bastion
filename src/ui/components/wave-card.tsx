@@ -6,6 +6,7 @@ import type { Wave } from '../../types.js';
 function timeAgo(ms: number): string {
   const diff = Date.now() - ms;
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -19,7 +20,7 @@ interface WaveCardProps {
   onDismiss: () => void | Promise<void>;
 }
 
-export function WaveCard({ wave, onNuke, onDismiss }: WaveCardProps): JSX.Element {
+export function WaveCard({ wave, onNuke, onDismiss }: Readonly<WaveCardProps>): JSX.Element {
   const uniqueAuthors = [...new Set(wave.items.map((i) => `u/${i.authorName}`))];
   const displayAuthors =
     uniqueAuthors.length <= 3
