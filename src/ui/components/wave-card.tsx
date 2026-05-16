@@ -42,10 +42,10 @@ export function WaveCard({ wave, onNuke, onDismiss, isConfirming, onRequestConfi
       gap="small"
     >
       <hstack alignment="middle" gap="small">
-        <text size="small" weight="bold" color={COLORS.danger}>
+        <text size="medium" weight="bold" color={COLORS.danger}>
           🚨 WAVE
         </text>
-        <text size="small" color={COLORS.textMuted}>
+        <text size="medium" color={COLORS.textMuted}>
           ·  {wave.items.length} item{wave.items.length === 1 ? '' : 's'}  ·  {timeAgo(wave.createdAt)}
         </text>
         <spacer grow />
@@ -73,14 +73,14 @@ export function WaveCard({ wave, onNuke, onDismiss, isConfirming, onRequestConfi
             Remove all {wave.items.length} item{wave.items.length === 1 ? '' : 's'}? This cannot be undone.
           </text>
           <hstack gap="small">
-            <button size="small" appearance="destructive" grow onPress={onNuke}>✓ Confirm Nuke</button>
-            <button size="small" appearance="secondary" onPress={onCancelConfirm}>Cancel</button>
+            <button size="medium" appearance="destructive" grow onPress={onNuke}>✓ Confirm Nuke</button>
+            <button size="medium" appearance="secondary" onPress={onCancelConfirm}>Cancel</button>
           </hstack>
         </vstack>
       ) : (
         <hstack gap="small" alignment="middle">
-          <button size="small" appearance="destructive" onPress={onRequestConfirm} icon="delete">Nuke Wave</button>
-          <button size="small" appearance="secondary" onPress={onDismiss}>Dismiss ✓</button>
+          <button size="medium" appearance="destructive" onPress={onRequestConfirm} icon="delete">Nuke Wave</button>
+          <button size="medium" appearance="secondary" onPress={onDismiss}>Dismiss ✓</button>
         </hstack>
       )}
     </vstack>

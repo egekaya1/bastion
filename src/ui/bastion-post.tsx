@@ -283,7 +283,7 @@ export function BastionPost(context: Context): JSX.Element {
           <text size="large" weight="bold" color={COLORS.orange}>🛡️ {APP_NAME.toUpperCase()}</text>
           <spacer grow />
           <LiveIndicator status={channel.status} />
-          <button size="small" appearance="secondary" onPress={dashRefreshFn} icon="refresh">Refresh</button>
+          <button size="medium" appearance="secondary" onPress={dashRefreshFn} icon="refresh">Refresh</button>
         </hstack>
 
         <hstack backgroundColor={COLORS.card} border="thin" borderColor={COLORS.border} padding="xsmall" gap="small">
