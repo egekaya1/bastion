@@ -124,13 +124,13 @@ export function BastionPost(context: Context): JSX.Element {
       await saveDomain(context.subredditId, domain, { label, color, addedBy: context.username ?? 'unknown', addedAt: Date.now() }, context);
       context.ui.showToast(`✅ Tagged ${domain} as ${color}.`);
       setDashRefresh((k) => k + 1);
-      await context.realtime.send(`bastion-${context.subredditId}`, { type: 'dash' });
+      await context.realtime.send(`bastion_${context.subredditId}`, { type: 'dash' });
     }
   );
 
   // Realtime channel — broadcasts state changes to all open Bastion posts in this subreddit.
   // 'dash' events refresh the dashboard; 'case' events (with matching postId) refresh a council case.
-  const realtimeChannelName = `bastion-${context.subredditId}`;
+  const realtimeChannelName = `bastion_${context.subredditId}`;
   const channel = useChannel({
     name: realtimeChannelName,
     onMessage: (msg) => {
